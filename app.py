@@ -575,9 +575,128 @@ def panel():
         </form>
     </div>
     
+    <div style="text-align:center; margin: 2rem 0;">
+        <a href="/buscar" style="display:inline-block; padding:.9rem 2rem; background:linear-gradient(135deg,#e94560,#ff6b6b); color:#fff; border-radius:10px; text-decoration:none; font-weight:bold; font-size:1rem;">🔍 Buscar perfiles 💎</a>
+    </div>
+
     <a href="/salir" class="boton-salir">Finalizar sesión</a>
 </div>
     """, usuario=usuario, foto_url=foto_url, datos_extra=datos_extra)
+
+# ==========================================================
+# 🔍 BUSCADOR DE PERFILES
+# ==========================================================
+@app.route("/buscar")
+def buscar():
+    if "usuario_id" not in session:
+        return redirect("/entrar")
+    
+    db = get_db()
+    cursor = db.cursor()
+    
+    # Saber qué tipo de usuario soy
+    cursor.execute("SELECT tipo_perfil FROM usuarios WHERE id = ?", [session["usuario_id"]])
+    mi_tipo = cursor.fetchone()["tipo_perfil"]
+    
+    # Si soy caballero → ver damas disponibles
+    if mi_tipo == "caballero":
+        cursor.execute("""
+            SELECT u.id, u.nickname, u.foto_perfil, d.servicios_ofrezco, 
+                   d.nombre_completo, d.estatura_cm, d.contextura, d.color_piel, d.personalidad
+            FROM usuarios u
+            LEFT JOIN perfil_dama d ON u.id = d.usuario_id
+            WHERE u.tipo_perfil = 'dama'
+        """)
+        perfiles = cursor.fetchall()
+        titulo = "👩 Damas disponibles"
+    
+    # Si soy dama → ver caballeros disponibles
+    elif mi_tipo == "dama":
+        cursor.execute("""
+            SELECT u.id, u.nickname, u.foto_perfil, c.servicios_busco, c.nombre_completo
+            FROM usuarios u
+            LEFT JOIN perfil_caballero c ON u.id = c.usuario_id
+            WHERE u.tipo_perfil = 'caballero'
+        """)
+        perfiles = cursor.fetchall()
+        titulo = "🤵 Caballeros disponibles"
+    
+    else:
+        perfiles = []
+        titulo = "Perfiles"
+    
+    # Preparar URL de fotos
+    perfiles_list = []
+    for p in perfiles:
+        foto = p["foto_perfil"]
+        if foto == "default-avatar.png" or not os.path.exists(os.path.join(UPLOAD_FOLDER, foto)):
+            foto_url = "https://via.placeholder.com/150/1a1a2e/e94560?text=💎"
+        else:
+            foto_url = url_for("ver_foto", nombre=foto)
+        
+        perfiles_list.append({**dict(p), "foto_url": foto_url})
+    
+    return render_template_string("""
+<style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+    body{background:#1a1a2e;color:#fff;min-height:100vh;padding:2rem}
+    .contenedor{max-width:900px;margin:0 auto}
+    h2{text-align:center;margin-bottom:2rem;color:#e94560;font-size:1.8rem}
+    .cuadricula{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.5rem}
+    .tarjeta{background:#16213e;border-radius:16px;padding:1.5rem;text-align:center;transition:.3s;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+    .tarjeta:hover{transform:translateY(-5px);box-shadow:0 8px 25px rgba(233,69,96,.2)}
+    .avatar{width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #e94560;margin-bottom:1rem}
+    .nombre{font-size:1.2rem;font-weight:bold;margin-bottom:.5rem}
+    .etiqueta{display:inline-block;background:#0f3460;padding:.4rem .7rem;border-radius:20px;font-size:.8rem;margin:.2rem}
+    .volver{display:inline-block;margin-top:2rem;color:#aaa;text-decoration:none;font-size:.95rem}
+    .volver:hover{color:#fff}
+    .vacio{text-align:center;color:#888;padding:3rem}
+</style>
+<div class="contenedor">
+    <h2>{{ titulo }}</h2>
+    
+    {% if perfiles %}
+    <div class="cuadricula">
+        {% for p in perfiles %}
+        <div class="tarjeta">
+            <img src="{{ p.foto_url }}" class="avatar" alt="{{ p.nickname }}">
+            <div class="nombre">{{ p.nickname }}</div>
+            {% if p.nombre_completo %}<p style="color:#aaa;font-size:.9rem">{{ p.nombre_completo }}</p>{% endif %}
+            
+            {% if p.estatura_cm %}<p style="font-size:.9rem">📏 {{ p.estatura_cm }} cm</p>{% endif %}
+            {% if p.contextura %}<p style="font-size:.9rem">👗 {{ p.contextura }}</p>{% endif %}
+            {% if p.color_piel %}<p style="font-size:.9rem">🎨 {{ p.color_piel }}</p>{% endif %}
+            {% if p.personalidad %}<p style="font-size:.9rem">💭 {{ p.personalidad }}</p>{% endif %}
+            
+            {% if p.servicios_ofrezco %}
+            <div style="margin-top:.8rem">
+                {% for s in p.servicios_ofrezco.split(',') %}
+                <span class="etiqueta">{{ s }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% if p.servicios_busco %}
+            <div style="margin-top:.8rem">
+                {% for s in p.servicios_busco.split(',') %}
+                <span class="etiqueta">{{ s }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="vacio">
+        <p>💎 Aún no hay perfiles disponibles</p>
+        <p style="font-size:.9rem;margin-top:.5rem">Vuelve pronto, estamos creciendo ✨</p>
+    </div>
+    {% endif %}
+    
+    <a href="/panel" class="volver">← Volver a mi panel</a>
+</div>
+    """, titulo=titulo, perfiles=perfiles_list)
+
 # ==========================================================
 # 📸 SUBIR FOTO DE PERFIL
 # ==========================================================
