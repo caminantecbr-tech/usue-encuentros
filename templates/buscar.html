@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block contenido %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">🔍 Buscar perfiles</h2>
+        <p class="text-muted mb-4">Próximamente: filtros y mensajes 💞</p>
+        {% if perfiles %}
+            <div class="row">
+                {% for p in perfiles %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ p.nickname }}</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">{{ p.tipo.title() }}</h6>
+                            {% if p.foto %}
+                                <img src="{{ url_for('static', filename='fotos/' + p.foto) }}" class="card-img-top rounded mb-3" style="width:100px;height:100px;object-fit:cover;">
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">Aún no hay perfiles para mostrar. ¡Sé el primero en invitar a otros! 💞</div>
+        {% endif %}
+        <a href="{{ url_for('perfil') }}" class="btn btn-secondary mt-3">Volver a mi perfil</a>
+    </div>
+</div>
+{% endblock %}

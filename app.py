@@ -1,30 +1,25 @@
 # ==========================================================
-# 💎 USUE ENCUENTROS — Versión 4.4 ELITE PERFILES DIFERENCIADOS
+# 💎 USUE ENCUENTROS — Versión 4.5 ELITE ALINEADA
 # Creada por: By cbr®
 # Lema: Crecemos juntos, cada día un poquito más!
 # ==========================================================
-
 from flask import Flask, render_template_string, request, redirect, url_for, session, flash, g
 import sqlite3, hashlib, uuid, os
 from datetime import datetime
-
 # ==========================================================
 # ⚙️ CONFIGURACIÓN
 # ==========================================================
 app = Flask(__name__)
 app.secret_key = "cbr3844856_usue_encuentros_v44_elite_2026"
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads", "profiles")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
 # ==========================================================
 # 🗄️ BASE DE DATOS
 # ==========================================================
 DATABASE = "usue.db"
-
 def get_db():
     db = getattr(g, "_database", None)
     if db is None:
@@ -42,8 +37,6 @@ def init_db():
     with app.app_context():
         db = get_db()
         cursor = db.cursor()
-        
-        # Tabla principal de cuentas
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS usuarios (
                 id TEXT PRIMARY KEY,
@@ -55,8 +48,6 @@ def init_db():
                 creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
-        # Datos específicos — Perfil: Caballero
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS perfil_caballero (
                 usuario_id TEXT PRIMARY KEY,
@@ -66,8 +57,6 @@ def init_db():
                 FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
             )
         """)
-        
-        # Datos específicos — Perfil: Dama
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS perfil_dama (
                 usuario_id TEXT PRIMARY KEY,
@@ -83,7 +72,6 @@ def init_db():
                 FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
             )
         """)
-        
         db.commit()
 
 def generar_id():
@@ -93,7 +81,7 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ==========================================================
-# 🌐 RUTAS PÚBLICAS
+# 🌐 PÁGINA DE INICIO
 # ==========================================================
 @app.route("/")
 def inicio():
@@ -125,8 +113,56 @@ def inicio():
     </div>
 </body>
 </html>
-        """)
+    """)
 
+# ==========================================================
+# 🔑 INICIO DE SESIÓN — CON BOTÓN VOLVER ATRÁS
+# ==========================================================
+@app.route("/entrar", methods=["GET","POST"])
+def entrar():
+    if request.method == "POST":
+        correo = request.form["correo"].strip().lower()
+        clave = request.form["contrasena"]
+        hashed = hashlib.sha256(clave.encode()).hexdigest()
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("SELECT id FROM usuarios WHERE correo = ? AND contrasena = ?", (correo, hashed))
+        usuario = cursor.fetchone()
+        if usuario:
+            session["usuario_id"] = usuario["id"]
+            return redirect("/panel")
+        flash("Correo o contraseña incorrectos")
+    
+    return render_template_string("""
+<style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+    body{background:#1a1a2e;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+    .caja{background:#16213e;padding:2.5rem;border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:100%;max-width:420px}
+    h2{text-align:center;margin-bottom:2rem;color:#e94560}
+    input{width:100%;padding:.9rem;margin:.5rem 0;border:none;border-radius:10px;background:#0f3460;color:#fff;font-size:1rem}
+    .boton{width:100%;padding:.9rem;border:none;border-radius:10px;background:linear-gradient(135deg,#e94560,#ff6b6b);color:#fff;font-size:1rem;cursor:pointer;margin-top:1rem}
+    .mensaje{color:#ff6b6b;text-align:center;margin-bottom:1rem}
+    .volver{color:#aaa;text-decoration:none;font-size:.95rem;transition:.2s;display:inline-block;margin-top:1.5rem;text-align:center;width:100%}
+    .volver:hover{color:#fff}
+</style>
+<div class="caja">
+    <h2>🔑 Iniciar sesión</h2>
+    {% with mensajes = get_flashed_messages() %}
+        {% if mensajes %}<p class="mensaje">{{ mensajes[0] }}</p>{% endif %}
+    {% endwith %}
+    <form method="post">
+        <input type="email" name="correo" placeholder="Tu correo electrónico" required>
+        <input type="password" name="contrasena" placeholder="Tu contraseña" required>
+        <button class="boton">Entrar 💎</button>
+    </form>
+    
+    <a href="/" class="volver">← Volver atrás</a>
+</div>
+    """)
+
+# ==========================================================
+# 🔄 ELEGIR TIPO DE PERFIL
+# ==========================================================
 @app.route("/elegir-perfil")
 def elegir_perfil():
     return render_template_string("""
@@ -152,11 +188,15 @@ def elegir_perfil():
         <div class="titulo-opcion">👩 Dama</div>
         <div class="descripcion">Ofrezco mi compañía y servicios</div>
     </a>
+    
+    <!-- ✨ Botón Volver atrás -->
+    <div style="text-align:center; margin-top: 2rem;">
+        <a href="/" style="color:#aaa; text-decoration:none; font-size:.95rem;">← Volver atrás</a>
+    </div>
 </div>
     """)
-
 # ==========================================================
-# 📝 REGISTRO — CABALLERO
+# 📝 REGISTRO — CABALLERO (TODO ALINEADO)
 # ==========================================================
 @app.route("/registrar/caballero", methods=["GET","POST"])
 def registrar_caballero():
@@ -164,36 +204,28 @@ def registrar_caballero():
         nickname = request.form["nickname"].strip()
         correo = request.form["correo"].strip().lower()
         clave = request.form["contrasena"]
-        
         if not all([nickname, correo, clave]):
             flash("Todos los campos obligatorios deben completarse")
             return redirect("/registrar/caballero")
-        
         db = get_db()
         cursor = db.cursor()
         try:
             hashed = hashlib.sha256(clave.encode()).hexdigest()
             user_id = generar_id()
-            
             cursor.execute("""
                 INSERT INTO usuarios (id, nickname, correo, contrasena, tipo_perfil)
                 VALUES (?, ?, ?, ?, 'caballero')
             """, (user_id, nickname, correo, hashed))
-            
-            # Datos opcionales
             nombre_completo = request.form.get("nombre_completo", "").strip()
             telefono = request.form.get("telefono", "").strip()
             servicios = ",".join(request.form.getlist("servicios_busco"))
-            
             cursor.execute("""
                 INSERT INTO perfil_caballero (usuario_id, nombre_completo, telefono, servicios_busco)
                 VALUES (?, ?, ?, ?)
             """, (user_id, nombre_completo, telefono, servicios))
-            
             db.commit()
             session["usuario_id"] = user_id
             return redirect("/panel")
-            
         except sqlite3.IntegrityError:
             flash("Este correo ya está registrado")
             return redirect("/registrar/caballero")
@@ -206,21 +238,21 @@ def registrar_caballero():
     h2{text-align:center;margin-bottom:1rem;color:#4ecdc4}
     .privado{background:#0f3460;padding:1rem;border-radius:8px;margin-bottom:1.5rem;color:#aaa;font-size:.9rem}
     label{display:block;margin:.8rem 0 .3rem 0;color:#ddd}
-    input, textarea{width:100%;padding:.8rem;border:none;border-radius:8px;background:#0f3460;color:#fff;font-size:1rem}
-    .grupo-opciones{margin:.8rem 0}
-    .opcion-check{margin:.5rem 0;display:flex;align-items:center;gap:.5rem}
+    input{width:100%;padding:.8rem;border:none;border-radius:8px;background:#0f3460;color:#fff;font-size:1rem}
+    .fila-opcion{display:flex;align-items:center;margin-bottom:14px;gap:12px}
+    .fila-opcion input[type="checkbox"]{width:auto;margin:0}
+    .fila-opcion label{margin:0;cursor:pointer}
     .boton{width:100%;padding:.9rem;border:none;border-radius:10px;background:linear-gradient(135deg,#4ecdc4,#44a08f);color:#fff;font-size:1rem;cursor:pointer;margin-top:1.5rem}
     .mensaje{color:#ff6b6b;text-align:center;margin-bottom:1rem}
     .opcional{color:#888;font-size:.85rem}
+    hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 </style>
 <div class="caja">
     <h2>🤵 Registro — Caballero</h2>
     <div class="privado">🔒 Nota: Los datos que proporcione se mantendrán privados</div>
-    
     {% with mensajes = get_flashed_messages() %}
         {% if mensajes %}<p class="mensaje">{{ mensajes[0] }}</p>{% endif %}
     {% endwith %}
-    
     <form method="post">
         <label>Nickname *</label>
         <input type="text" name="nickname" required placeholder="Tu nombre visible">
@@ -231,8 +263,7 @@ def registrar_caballero():
         <label>Contraseña *</label>
         <input type="password" name="contrasena" required>
         
-        <hr style="border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0">
-        
+        <hr>
         <h4 style="color:#aaa;margin-bottom:1rem;">Datos opcionales</h4>
         
         <label>Nombre completo <span class="opcional">(opcional)</span></label>
@@ -240,23 +271,41 @@ def registrar_caballero():
         
         <label>Número de móvil <span class="opcional">(opcional)</span></label>
         <input type="tel" name="telefono" placeholder="+591 ...">
-        
-        <label>Tipo de servicios que busco <span class="opcional">(selecciona uno o varios)</span></label>
-        <div class="grupo-opciones">
-            <label class="opcion-check"><input type="checkbox" name="servicios_busco" value="Dama de compañía"> Dama de compañía</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_busco" value="Amiga de alquiler"> Amiga de alquiler</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_busco" value="Novia de alquiler"> Novia de alquiler</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_busco" value="Guía turística urbana"> Guía turística urbana</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_busco" value="Sexo"> Sexo</label>
-        </div>
-        
-        <button class="boton">Crear cuenta 💎</button>
-    </form>
-</div>
-    """)
 
+                <label>Tipo de servicios que busco <span class="opcional">(selecciona uno o varios)</span></label>
+        <div style="margin-top:10px;">
+            <div class="fila-opcion">
+                <input type="checkbox" id="s1" name="servicios_busco" value="Dama de compañía">
+                <label for="s1">Dama de compañía</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="s2" name="servicios_busco" value="Amiga de alquiler">
+                <label for="s2">Amiga de alquiler</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="s3" name="servicios_busco" value="Novia de alquiler">
+                <label for="s3">Novia de alquiler</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="s4" name="servicios_busco" value="Guía turística urbana (Quiero conocer la ciudad)">
+                <label for="s4">Guía turística urbana (Quiero conocer la ciudad)</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="s5" name="servicios_busco" value="Sexo">
+                <label for="s5">Sexo</label>
+            </div>
+                    <button class="boton">💎 Crear cuenta</button>
+    </form>
+    
+    <!-- ✨ Botón Volver atrás -->
+    <div style="text-align:center; margin-top: 1.5rem;">
+        <a href="/elegir-perfil" style="color:#aaa; text-decoration:none; font-size:.95rem;">← Volver atrás</a>
+    </div>
+</div>
+        </div>
+    """)
 # ==========================================================
-# 📝 REGISTRO — DAMA
+# 📝 REGISTRO — DAMA (TODO ALINEADO)
 # ==========================================================
 @app.route("/registrar/dama", methods=["GET","POST"])
 def registrar_dama():
@@ -264,23 +313,18 @@ def registrar_dama():
         nickname = request.form["nickname"].strip()
         correo = request.form["correo"].strip().lower()
         clave = request.form["contrasena"]
-        
         if not all([nickname, correo, clave]):
             flash("Todos los campos obligatorios deben completarse")
             return redirect("/registrar/dama")
-        
         db = get_db()
         cursor = db.cursor()
         try:
             hashed = hashlib.sha256(clave.encode()).hexdigest()
             user_id = generar_id()
-            
             cursor.execute("""
                 INSERT INTO usuarios (id, nickname, correo, contrasena, tipo_perfil)
                 VALUES (?, ?, ?, ?, 'dama')
             """, (user_id, nickname, correo, hashed))
-            
-            # Datos de perfil
             nombre_completo = request.form.get("nombre_completo", "").strip()
             estatura = request.form.get("estatura_cm") or None
             contextura = request.form.get("contextura", "").strip()
@@ -290,7 +334,6 @@ def registrar_dama():
             personalidad = request.form.get("personalidad", "").strip()
             telefono = request.form.get("telefono", "").strip()
             servicios = ",".join(request.form.getlist("servicios_ofrezco"))
-            
             cursor.execute("""
                 INSERT INTO perfil_dama (
                     usuario_id, nombre_completo, estatura_cm, contextura,
@@ -300,11 +343,9 @@ def registrar_dama():
             """, (user_id, nombre_completo, estatura, contextura,
                   color_piel, color_ojos, color_cabello, personalidad,
                   telefono, servicios))
-            
             db.commit()
             session["usuario_id"] = user_id
             return redirect("/panel")
-            
         except sqlite3.IntegrityError:
             flash("Este correo ya está registrado")
             return redirect("/registrar/dama")
@@ -318,20 +359,20 @@ def registrar_dama():
     .privado{background:#0f3460;padding:1rem;border-radius:8px;margin-bottom:1.5rem;color:#aaa;font-size:.9rem}
     label{display:block;margin:.8rem 0 .3rem 0;color:#ddd}
     input, select{width:100%;padding:.8rem;border:none;border-radius:8px;background:#0f3460;color:#fff;font-size:1rem}
-    .grupo-opciones{margin:.8rem 0}
-    .opcion-check{margin:.5rem 0;display:flex;align-items:center;gap:.5rem}
+    .fila-opcion{display:flex;align-items:center;margin-bottom:14px;gap:12px}
+    .fila-opcion input[type="checkbox"]{width:auto;margin:0}
+    .fila-opcion label{margin:0;cursor:pointer}
     .boton{width:100%;padding:.9rem;border:none;border-radius:10px;background:linear-gradient(135deg,#e94560,#ff6b6b);color:#fff;font-size:1rem;cursor:pointer;margin-top:1.5rem}
     .mensaje{color:#ff6b6b;text-align:center;margin-bottom:1rem}
     .opcional{color:#888;font-size:.85rem}
+    hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 </style>
 <div class="caja">
     <h2>👩 Registro — Dama</h2>
     <div class="privado">🔒 Nota: Los datos que proporcione se mantendrán privados</div>
-    
     {% with mensajes = get_flashed_messages() %}
         {% if mensajes %}<p class="mensaje">{{ mensajes[0] }}</p>{% endif %}
     {% endwith %}
-    
     <form method="post">
         <label>Nickname *</label>
         <input type="text" name="nickname" required placeholder="Tu nombre público">
@@ -342,8 +383,7 @@ def registrar_dama():
         <label>Contraseña *</label>
         <input type="password" name="contrasena" required>
         
-        <hr style="border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0">
-        
+        <hr>
         <h4 style="color:#aaa;margin-bottom:1rem;">Descripción personal</h4>
         
         <label>Nombre completo <span class="opcional">(opcional)</span></label>
@@ -397,60 +437,36 @@ def registrar_dama():
         <input type="tel" name="telefono" placeholder="+591 ...">
         
         <label>Tipo de servicios que ofrezco <span class="opcional">(selecciona uno o varios)</span></label>
-        <div class="grupo-opciones">
-            <label class="opcion-check"><input type="checkbox" name="servicios_ofrezco" value="Dama de compañía"> Dama de compañía</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_ofrezco" value="Amiga de alquiler"> Amiga de alquiler</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_ofrezco" value="Novia de alquiler"> Novia de alquiler</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_ofrezco" value="Guía turística urbana"> Guía turística urbana</label>
-            <label class="opcion-check"><input type="checkbox" name="servicios_ofrezco" value="Sexo"> Sexo</label>
-        </div>
-        
-        <button class="boton">Crear cuenta 💎</button>
+        <div style="margin-top:10px;">
+            <div class="fila-opcion">
+                <input type="checkbox" id="d1" name="servicios_ofrezco" value="Dama de compañía">
+                <label for="d1">Dama de compañía</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="d2" name="servicios_ofrezco" value="Amiga de alquiler">
+                <label for="d2">Amiga de alquiler</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="d3" name="servicios_ofrezco" value="Novia de alquiler">
+                <label for="d3">Novia de alquiler</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="d4" name="servicios_ofrezco" value="Guía turística urbana (Quiero que conozcas la ciudad)">
+                <label for="d4">Guía turística urbana (Quiero que conozcas la ciudad)</label>
+            </div>
+            <div class="fila-opcion">
+                <input type="checkbox" id="d5" name="servicios_ofrezco" value="Sexo">
+                <label for="d5">Sexo</label>
+            </div>
+                    <button class="boton">💎 Crear cuenta</button>
     </form>
-</div>
-    """)
-
-# ==========================================================
-# 🔑 INICIO DE SESIÓN
-# ==========================================================
-@app.route("/entrar", methods=["GET","POST"])
-def entrar():
-    if request.method == "POST":
-        correo = request.form["correo"].strip().lower()
-        clave = request.form["contrasena"]
-        hashed = hashlib.sha256(clave.encode()).hexdigest()
-        
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute("SELECT id FROM usuarios WHERE correo = ? AND contrasena = ?", (correo, hashed))
-        usuario = cursor.fetchone()
-        
-        if usuario:
-            session["usuario_id"] = usuario["id"]
-            return redirect("/panel")
-        flash("Correo o contraseña incorrectos")
     
-    return render_template_string("""
-<style>
-    *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
-    body{background:#1a1a2e;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
-    .caja{background:#16213e;padding:2.5rem;border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:100%;max-width:420px}
-    h2{text-align:center;margin-bottom:2rem;color:#e94560}
-    input{width:100%;padding:.9rem;margin:.5rem 0;border:none;border-radius:10px;background:#0f3460;color:#fff;font-size:1rem}
-    .boton{width:100%;padding:.9rem;border:none;border-radius:10px;background:linear-gradient(135deg,#e94560,#ff6b6b);color:#fff;font-size:1rem;cursor:pointer;margin-top:1rem}
-    .mensaje{color:#ff6b6b;text-align:center;margin-bottom:1rem}
-</style>
-<div class="caja">
-    <h2>🔑 Iniciar sesión</h2>
-    {% with mensajes = get_flashed_messages() %}
-        {% if mensajes %}<p class="mensaje">{{ mensajes[0] }}</p>{% endif %}
-    {% endwith %}
-    <form method="post">
-        <input type="email" name="correo" placeholder="Tu correo electrónico" required>
-        <input type="password" name="contrasena" placeholder="Tu contraseña" required>
-        <button class="boton">Entrar 💎</button>
-    </form>
+    <!-- ✨ Botón Volver atrás -->
+    <div style="text-align:center; margin-top: 1.5rem;">
+        <a href="/elegir-perfil" style="color:#aaa; text-decoration:none; font-size:.95rem;">← Volver atrás</a>
+    </div>
 </div>
+        </div>
     """)
 
 # ==========================================================
@@ -460,20 +476,17 @@ def entrar():
 def panel():
     if "usuario_id" not in session:
         return redirect("/entrar")
-    
     db = get_db()
     cursor = db.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE id = ?", [session["usuario_id"]])
     usuario = cursor.fetchone()
     
-    # Foto de perfil
     foto = usuario["foto_perfil"]
     if foto == "default-avatar.png" or not os.path.exists(os.path.join(UPLOAD_FOLDER, foto)):
         foto_url = "https://via.placeholder.com/150/1a1a2e/e94560?text=💎"
     else:
         foto_url = url_for("ver_foto", nombre=foto)
     
-    # Datos específicos
     datos_extra = {}
     if usuario["tipo_perfil"] == "caballero":
         cursor.execute("SELECT * FROM perfil_caballero WHERE usuario_id = ?", [session["usuario_id"]])
@@ -502,8 +515,7 @@ def panel():
 </style>
 <div class="caja">
     <img src="{{ foto_url }}" class="avatar" alt="Foto de perfil">
-    <h2>Bienvenido, {{ usuario['nickname'] }}</h2>
-    
+    <h2>Bienvenida, {{ usuario['nickname'] }}</h2>
     {% if usuario['tipo_perfil'] == 'caballero' %}
         <div style="text-align:center">
             <span class="etiqueta-tipo caballero">🤵 Caballero</span>
@@ -513,7 +525,6 @@ def panel():
             <span class="etiqueta-tipo dama">👩 Dama</span>
         </div>
     {% endif %}
-    
     <p class="dato">📧 {{ usuario['correo'] }}</p>
     <p class="dato">📅 Registrado: {{ usuario['creado_en'][:10] }}</p>
     
@@ -567,15 +578,13 @@ def panel():
     <a href="/salir" class="boton-salir">Finalizar sesión</a>
 </div>
     """, usuario=usuario, foto_url=foto_url, datos_extra=datos_extra)
-
 # ==========================================================
-# 📸 SUBIR FOTO
+# 📸 SUBIR FOTO DE PERFIL
 # ==========================================================
 @app.route("/subir-foto", methods=["POST"])
 def subir_foto():
     if "usuario_id" not in session:
         return redirect("/entrar")
-    
     if "foto" not in request.files or request.files["foto"].filename == "":
         flash("No se seleccionó ninguna imagen")
         return redirect("/panel")
@@ -590,6 +599,7 @@ def subir_foto():
         cursor = db.cursor()
         cursor.execute("SELECT foto_perfil FROM usuarios WHERE id = ?", [session["usuario_id"]])
         anterior = cursor.fetchone()["foto_perfil"]
+        
         if anterior != "default-avatar.png":
             ruta_anterior = os.path.join(UPLOAD_FOLDER, anterior)
             if os.path.exists(ruta_anterior):
@@ -598,7 +608,6 @@ def subir_foto():
         archivo.save(ruta_completa)
         cursor.execute("UPDATE usuarios SET foto_perfil = ? WHERE id = ?", (nombre_guardado, session["usuario_id"]))
         db.commit()
-    
     return redirect("/panel")
 
 @app.route("/static/uploads/profiles/<nombre>")
@@ -610,9 +619,8 @@ def ver_foto(nombre):
 def salir():
     session.clear()
     return redirect("/")
-
 # ==========================================================
-# 🚀 INICIO
+# 🚀 ARRANQUE
 # ==========================================================
 if __name__ == "__main__":
     with app.app_context():

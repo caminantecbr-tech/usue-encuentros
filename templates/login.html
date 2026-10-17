@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="text-center mb-4">🔐 Iniciar sesión</h2>
+        <form method="post">
+            <div class="mb-3">
+                <label class="form-label">Correo electrónico</label>
+                <input type="email" name="correo" class="form-control" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">Contraseña</label>
+                <input type="password" name="clave" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Entrar 💞</button>
+        </form>
+        <p class="text-center mt-3">¿No tienes cuenta? <a href="{{ url_for('registro') }}">Crear una</a></p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-7">
+        <h2 class="text-center mb-4">✨ Crear cuenta</h2>
+        <form method="post">
+            <!-- Tipo de perfil -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Perfil</label>
+                <select name="tipo" class="form-select" required>
+                    <option value="">Selecciona...</option>
+                    <option value="caballero">Caballero</option>
+                    <option value="dama">Dama</option>
+                </select>
+            </div>
+
+            <!-- Nickname -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Apodo / Nickname</label>
+                <input type="text" name="nickname" class="form-control" required>
+            </div>
+
+            <!-- Correo -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Correo electrónico</label>
+                <input type="email" name="correo" class="form-control" required>
+            </div>
+
+            <!-- Contraseña -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Contraseña</label>
+                <input type="password" name="clave" class="form-control" required>
+            </div>
+
+            <!-- Datos adicionales — Caballero -->
+            <div class="mb-4">
+                <h5 class="mb-3 text-primary">Datos del perfil</h5>
+                <p class="text-muted small fst-italic mb-3">Tus datos se mantendrán privados 🔒</p>
+            </div>
+
+            <!-- Nombre completo -->
+            <div class="mb-3">
+                <label class="form-label">Nombre completo <span class="text-muted">(opcional)</span></label>
+                <input type="text" name="nombre_completo" class="form-control">
+            </div>
+
+            <!-- Móvil -->
+            <div class="mb-3">
+                <label class="form-label">Número de móvil <span class="text-muted">(opcional)</span></label>
+                <input type="tel" name="movil" class="form-control" placeholder="+591 ...">
+            </div>
+
+            <!-- Servicios que busco -->
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Tipo de servicios que busco <span class="text-muted">(selecciona uno o varios)</span></label>
+                
+                <div class="mt-2">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="s1" name="servicios" value="compania">
+                        <label class="form-check-label ms-2" for="s1">Dama de compañía</label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="s2" name="servicios" value="amiga_alquiler">
+                        <label class="form-check-label ms-2" for="s2">Amiga de alquiler</label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="s3" name="servicios" value="novia_alquiler">
+                        <label class="form-check-label ms-2" for="s3">Novia de alquiler</label>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="s4" name="servicios" value="guia_turistica">
+                        <label class="form-check-label ms-2" for="s4">Guía turística urbana</label>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="s5" name="servicios" value="encuentro">
+                        <label class="form-check-label ms-2" for="s5">Encuentro personal</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botón -->
+            <div class="mt-5">
+                <button type="submit" class="btn w-100 py-3" style="background: linear-gradient(90deg, #4ecdc4, #44a08d); color: white; border-radius: 12px; font-weight: 600; font-size: 1.1rem;">
+                    💎 Crear cuenta
+                </button>
+            </div>
+        </form>
+        <p class="text-center mt-4">¿Ya tienes cuenta? <a href="{{ url_for('login') }}">Entrar aquí</a></p>
+    </div>
+</div>
+{% endblock %}

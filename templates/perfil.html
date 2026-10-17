@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block contenido %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2 class="mb-4">Mi Perfil 💖</h2>
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">{{ usuario.nickname }}</h5>
+                <p class="card-text text-muted">Tipo: {{ usuario.tipo.title() }}</p>
+                {% if usuario.foto %}
+                    <img src="{{ url_for('static', filename='fotos/' + usuario.foto) }}" class="rounded-circle mb-3" width="150" alt="Foto de perfil">
+                {% endif %}
+                <p class="text-muted fst-italic">Tus datos personales se mantienen privados 🔒</p>
+            </div>
+        </div>
+        <a href="{{ url_for('buscar') }}" class="btn btn-success">🔍 Buscar personas</a>
+    </div>
+</div>
+{% endblock %}
