@@ -199,6 +199,138 @@ def leer_ciudad(form):
     return c
 
 # ==========================================================
+# 📱 PWA — App para celular (instalable, con ícono y offline)
+# ==========================================================
+import zlib, struct
+
+def _png_chunk(tag, data):
+    c = tag.encode() + data
+    return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xffffffff)
+
+def _generar_icono(size):
+    """Genera un ícono PNG (fondo oscuro + diamante rosa) sin dependencias."""
+    pixels = []
+    cx = cy = size // 2
+    r_diam = size * 0.32
+    for y in range(size):
+        row = []
+        t = y / size
+        br = int(26 + (22 - 26) * t); bg = int(26 + (33 - 26) * t); bb = int(46 + (62 - 46) * t)
+        for x in range(size):
+            dx = abs(x - cx) / r_diam; dy = abs(y - cy) / r_diam
+            if dx + dy <= 1.0:
+                tt = (x + y) / (2 * size)
+                r = int(233 + (255 - 233) * tt); g = int(69 + (107 - 69) * tt); b = int(96 + (107 - 96) * tt)
+            else:
+                r, g, b = br, bg, bb
+            row.append((r, g, b, 255))
+        pixels.append(row)
+    raw = b""
+    for row in pixels:
+        raw += b"\x00" + bytes(v for px in row for v in px)
+    return (b"\x89PNG\r\n\x1a\n"
+            + _png_chunk("IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
+            + _png_chunk("IDAT", zlib.compress(raw, 9))
+            + _png_chunk("IEND", b""))
+
+ICON_192 = _generar_icono(192)
+ICON_512 = _generar_icono(512)
+
+MANIFEST = {
+    "name": "Usue Encuentros 💎",
+    "short_name": "Usue",
+    "description": "Crecemos juntos, cada día un poquito más",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#1a1a2e",
+    "theme_color": "#e94560",
+    "icons": [
+        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+    ],
+}
+
+SW_JS = """
+const CACHE = 'usue-v1';
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(
+    caches.open(CACHE).then(cache =>
+      cache.match(e.request).then(cached =>
+        cached || fetch(e.request).then(resp => {
+          if (resp && resp.status === 200 && !e.request.url.includes('/stream')) {
+            cache.put(e.request, resp.clone());
+          }
+          return resp;
+        }).catch(() => cached)
+      )
+    )
+  );
+});
+"""
+
+PWA_HEAD = ('<link rel="manifest" href="/manifest.json">'
+    '<meta name="theme-color" content="#e94560">'
+    '<meta name="apple-mobile-web-app-capable" content="yes">'
+    '<meta name="mobile-web-app-capable" content="yes">'
+    '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">'
+    '<meta name="apple-mobile-web-app-title" content="Usue">'
+    '<link rel="apple-touch-icon" href="/icon-192.png">')
+
+PWA_SCRIPT = """
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js'); });
+}
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault(); deferredPrompt = e;
+  var b = document.getElementById('btn-instalar-app');
+  if (b) b.style.display = 'block';
+});
+function instalarApp() {
+  if (deferredPrompt) { deferredPrompt.prompt(); }
+}
+</script>
+<button id="btn-instalar-app" onclick="instalarApp()" style="display:none;position:fixed;bottom:16px;right:16px;z-index:99999;padding:.8rem 1.2rem;border:none;border-radius:30px;background:linear-gradient(135deg,#e94560,#ff6b6b);color:#fff;font-weight:bold;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);font-size:.9rem">📲 Instalar app</button>
+"""
+
+@app.route("/manifest.json")
+def pwa_manifest():
+    return Response(json.dumps(MANIFEST, ensure_ascii=False), mimetype="application/manifest+json")
+
+@app.route("/sw.js")
+def pwa_service_worker():
+    return Response(SW_JS, mimetype="application/javascript")
+
+@app.route("/icon-192.png")
+def pwa_icon192():
+    return Response(ICON_192, mimetype="image/png")
+
+@app.route("/icon-512.png")
+def pwa_icon512():
+    return Response(ICON_512, mimetype="image/png")
+
+@app.after_request
+def inyectar_pwa(resp):
+    """Inyecta etiquetas PWA + botón instalar en todas las páginas HTML."""
+    if resp.mimetype and "text/html" in resp.mimetype:
+        try:
+            html = resp.get_data(as_text=True)
+            if "</head>" in html:
+                html = html.replace("</head>", PWA_HEAD + "</head>", 1)
+            if "</body>" in html:
+                html = html.replace("</body>", PWA_SCRIPT + "</body>", 1)
+            resp.set_data(html)
+        except Exception:
+            pass
+    return resp
+
+# ==========================================================
 # 🗄️ BASE DE DATOS
 # ==========================================================
 def get_db():
@@ -1873,3 +2005,4 @@ if __name__ == "__main__":
     print(f"📍 Base de datos: {DATABASE}")
     print("🌐 Navega en: http://127.0.0.1:5000")
     app.run(debug=True)
+

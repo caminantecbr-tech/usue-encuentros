@@ -1,24 +1,26 @@
 # ==========================================================
-# 💎 USUE ENCUENTROS — Versión 5.2 COMPLETA
+# 💎 USUE ENCUENTROS — Versión 5.3 COMPLETA
 # Creada por: By cbr®
 # Lema: Crecemos juntos, cada día un poquito más!
-# Novedades v5.2: mensajería mejorada, edición de perfil,
-# galería de fotos, filtros avanzados (Gold/Diamante),
-# verificación, bloqueo, denuncias y recuperación de clave.
+# Novedades v5.3: chat en tiempo real (SSE) y panel de
+# administración visual (verificaciones, denuncias, estadísticas).
 # ==========================================================
+import time
 from datetime import datetime, timedelta
+from markupsafe import escape
 from flask import (
     Flask, render_template_string, request, redirect, url_for,
-    session, flash, g, send_from_directory, abort
+    session, flash, g, send_from_directory, abort, Response
 )
-import sqlite3, hashlib, uuid, os
+import sqlite3, hashlib, uuid, os, json
 
 # ==========================================================
 # ⚙️ CONFIGURACIÓN
 # ==========================================================
 app = Flask(__name__)
 app.secret_key = "cbr3844856_usue_encuentros_v52_elite_2026"
-ADMIN_TOKEN = "admin-usue-2026"  # para aprobar verificaciones: /admin/verificar/<id>?token=...
+ADMIN_TOKEN = "admin-usue-2026"  # para aprobar verificaciones por URL: /admin/verificar/<id>?token=...
+ADMIN_PASS = "admin2026"         # contraseña del panel de administración (/admin)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_PROFILES = os.path.join(BASE_DIR, "static", "uploads", "profiles")
 UPLOAD_GALERIA = os.path.join(BASE_DIR, "static", "uploads", "galeria")
@@ -67,6 +69,134 @@ METODOS_PAGO = {
 }
 
 SERVICIOS_OPCIONES = ["Dama de compañía", "Amiga de alquiler", "Novia de alquiler", "Guía turística urbana"]
+
+IDIOMAS_OPCIONES = ["Español", "Inglés", "Portugués", "Francés", "Italiano", "Alemán", "Árabe", "Chino", "Japonés", "Otros"]
+DISPONIBILIDAD_OPCIONES = ["Mañanas", "Tardes", "Noches", "Fines de semana", "24/7"]
+
+PAISES_POR_CONTINENTE = {
+    "América": ["Bolivia", "Argentina", "Brasil", "Chile", "Colombia", "Perú", "México", "Estados Unidos",
+                "Ecuador", "Paraguay", "Uruguay", "Venezuela", "Panamá", "Costa Rica", "República Dominicana", "Canadá"],
+    "Europa": ["España", "Francia", "Italia", "Portugal", "Reino Unido", "Alemania", "Países Bajos", "Bélgica",
+               "Suiza", "Austria", "Suecia", "Noruega", "Polonia", "Rusia", "Turquía", "Grecia",
+               "República Checa", "Hungría", "Irlanda"],
+    "Asia": ["Japón", "China", "India", "Corea del Sur", "Tailandia", "Vietnam", "Indonesia", "Filipinas",
+             "Malasia", "Singapur", "Emiratos Árabes Unidos", "Arabia Saudita", "Israel", "Líbano", "Irán"],
+}
+
+CIUDADES_POR_PAIS = {
+    "Bolivia": ["Santa Cruz", "La Paz", "Cochabamba", "Sucre", "Tarija", "Oruro", "Potosí"],
+    "Argentina": ["Buenos Aires", "Córdoba", "Rosario", "Mendoza"],
+    "Brasil": ["São Paulo", "Río de Janeiro", "Brasilia", "Salvador", "Fortaleza"],
+    "Chile": ["Santiago", "Valparaíso", "Concepción"],
+    "Colombia": ["Bogotá", "Medellín", "Cali", "Barranquilla"],
+    "Perú": ["Lima", "Arequipa", "Trujillo", "Cusco"],
+    "México": ["Ciudad de México", "Guadalajara", "Monterrey", "Cancún"],
+    "Estados Unidos": ["Nueva York", "Los Ángeles", "Miami", "Houston", "Chicago", "Las Vegas", "Orlando"],
+    "Ecuador": ["Quito", "Guayaquil"],
+    "Paraguay": ["Asunción", "Ciudad del Este"],
+    "Uruguay": ["Montevideo"],
+    "Venezuela": ["Caracas", "Maracaibo"],
+    "Panamá": ["Ciudad de Panamá"],
+    "Costa Rica": ["San José"],
+    "República Dominicana": ["Santo Domingo", "Punta Cana"],
+    "Canadá": ["Toronto", "Montreal", "Vancouver"],
+    "España": ["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga", "Bilbao"],
+    "Francia": ["París", "Marsella", "Lyon", "Niza", "Burdeos"],
+    "Italia": ["Roma", "Milán", "Nápoles", "Turín", "Venecia", "Florencia"],
+    "Portugal": ["Lisboa", "Oporto"],
+    "Reino Unido": ["Londres", "Manchester", "Birmingham", "Edimburgo"],
+    "Alemania": ["Berlín", "Múnich", "Fráncfort", "Hamburgo", "Colonia"],
+    "Países Bajos": ["Ámsterdam", "Róterdam"],
+    "Bélgica": ["Bruselas", "Amberes"],
+    "Suiza": ["Zúrich", "Ginebra", "Basilea"],
+    "Austria": ["Viena", "Salzburgo"],
+    "Suecia": ["Estocolmo"],
+    "Noruega": ["Oslo"],
+    "Polonia": ["Varsovia", "Cracovia"],
+    "Rusia": ["Moscú", "San Petersburgo"],
+    "Turquía": ["Estambul", "Ankara", "Antalya"],
+    "Grecia": ["Atenas", "Salónica"],
+    "República Checa": ["Praga"],
+    "Hungría": ["Budapest"],
+    "Irlanda": ["Dublín"],
+    "Japón": ["Tokio", "Osaka", "Kioto"],
+    "China": ["Pekín", "Shanghái", "Cantón", "Shenzhen"],
+    "India": ["Nueva Delhi", "Bombay", "Bangalore", "Calcuta"],
+    "Corea del Sur": ["Seúl", "Busán"],
+    "Tailandia": ["Bangkok", "Phuket", "Chiang Mai", "Pattaya"],
+    "Vietnam": ["Ciudad Ho Chi Minh", "Hanói", "Da Nang"],
+    "Indonesia": ["Yakarta", "Bali", "Surabaya"],
+    "Filipinas": ["Manila", "Cebú"],
+    "Malasia": ["Kuala Lumpur", "Penang"],
+    "Singapur": ["Singapur"],
+    "Emiratos Árabes Unidos": ["Dubái", "Abu Dabi"],
+    "Arabia Saudita": ["Riad", "Yeda", "La Meca"],
+    "Israel": ["Tel Aviv", "Jerusalén"],
+    "Líbano": ["Beirut"],
+    "Irán": ["Teherán"],
+}
+
+# ==========================================================
+# 🧩 HELPERS HTML reutilizables (ubicación en cascada + checks)
+# ==========================================================
+def html_ubicacion(pais_actual="", ciudad_actual=""):
+    opts = ['<option value="">Selecciona un país</option>']
+    for continente, paises in PAISES_POR_CONTINENTE.items():
+        opts.append(f'<optgroup label="{continente} 🌎">')
+        for p in paises:
+            sel = " selected" if p == pais_actual else ""
+            opts.append(f'<option value="{p}"{sel}>{p}</option>')
+        opts.append('</optgroup>')
+    ciudades_json = json.dumps(CIUDADES_POR_PAIS, ensure_ascii=False)
+    ciudad_actual_js = json.dumps(ciudad_actual or "", ensure_ascii=False)
+    return f"""
+<label>País *</label>
+<select name="pais" id="pais_select" required style="margin-bottom:.5rem">
+{''.join(opts)}
+</select>
+<label>Ciudad *</label>
+<select name="ciudad" id="ciudad_select" required disabled>
+<option value="">Primero elige un país</option>
+</select>
+<input type="text" name="ciudad_otra" id="ciudad_otra" placeholder="Escribe tu ciudad..." style="display:none;margin-top:.5rem">
+<script>
+var CIUDADES = {ciudades_json};
+var CIUDAD_ACTUAL = {ciudad_actual_js};
+var paisSel = document.getElementById('pais_select');
+var ciudadSel = document.getElementById('ciudad_select');
+var ciudadOtra = document.getElementById('ciudad_otra');
+function poblarCiudades(){{
+  var pais = paisSel.value;
+  ciudadSel.innerHTML = '';
+  if(!pais){{ ciudadSel.disabled = true; ciudadSel.innerHTML='<option>Primero elige un país</option>'; ciudadOtra.style.display='none'; return; }}
+  ciudadSel.disabled = false;
+  var lista = CIUDADES[pais] || [];
+  ciudadSel.innerHTML = '<option value="">Selecciona tu ciudad</option>';
+  lista.forEach(function(c){{
+    var o = document.createElement('option'); o.value=c; o.textContent=c;
+    if(c===CIUDAD_ACTUAL) o.selected=true;
+    ciudadSel.appendChild(o);
+  }});
+  var o = document.createElement('option'); o.value='__otra__'; o.textContent='Otra ciudad...'; ciudadSel.appendChild(o);
+  if(CIUDAD_ACTUAL && lista.indexOf(CIUDAD_ACTUAL)===-1){{ ciudadSel.value='__otra__'; ciudadOtra.value=CIUDAD_ACTUAL; ciudadOtra.style.display='block'; }}
+}}
+paisSel.addEventListener('change', function(){{ CIUDAD_ACTUAL=''; poblarCiudades(); }});
+ciudadSel.addEventListener('change', function(){{ ciudadOtra.style.display = (ciudadSel.value==='__otra__')?'block':'none'; }});
+poblarCiudades();
+</script>"""
+
+def html_checks(nombre, opciones, seleccionados):
+    html = []
+    for o in opciones:
+        chk = " checked" if o in seleccionados else ""
+        html.append(f'<div class="fila-opcion"><input type="checkbox" name="{nombre}" value="{o}"{chk}><label>{o}</label></div>')
+    return "".join(html)
+
+def leer_ciudad(form):
+    c = form.get("ciudad", "")
+    if c == "__otra__":
+        c = form.get("ciudad_otra", "").strip()
+    return c
 
 # ==========================================================
 # 🗄️ BASE DE DATOS
@@ -214,6 +344,10 @@ def init_db():
             ("usuarios", "token_expira", "TIMESTAMP"),
             ("mensajes", "oculto_remitente", "INTEGER DEFAULT 0"),
             ("mensajes", "oculto_destinatario", "INTEGER DEFAULT 0"),
+            ("usuarios", "pais", "TEXT"),
+            ("usuarios", "idiomas", "TEXT"),
+            ("usuarios", "descripcion", "TEXT"),
+            ("usuarios", "disponibilidad", "TEXT"),
         ]
         for tabla, col, tipo in migraciones:
             try:
@@ -326,8 +460,13 @@ def registrar_caballero():
         db = get_db(); cur = db.cursor()
         try:
             uid = generar_id()
-            cur.execute("INSERT INTO usuarios (id,nickname,correo,contrasena,tipo_perfil,edad,ciudad) VALUES (?,?,?,?,'caballero',?,?)",
-                (uid, nickname, correo, hash_clave(clave), request.form.get("edad") or None, request.form.get("ciudad","").strip()))
+            cur.execute("""INSERT INTO usuarios (id,nickname,correo,contrasena,tipo_perfil,edad,pais,ciudad,idiomas,descripcion,disponibilidad)
+                VALUES (?,?,?,?,'caballero',?,?,?,?,?,?)""",
+                (uid, nickname, correo, hash_clave(clave), request.form.get("edad") or None,
+                 request.form.get("pais","").strip(), leer_ciudad(request.form),
+                 ",".join(request.form.getlist("idiomas")),
+                 request.form.get("descripcion","").strip(),
+                 ",".join(request.form.getlist("disponibilidad"))))
             cur.execute("INSERT INTO perfil_caballero (usuario_id,nombre_completo,telefono,servicios_busco) VALUES (?,?,?,?)",
                 (uid, request.form.get("nombre_completo","").strip(), request.form.get("telefono","").strip(),
                  ",".join(request.form.getlist("servicios_busco"))))
@@ -361,8 +500,14 @@ hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 <hr><h4 style="color:#aaa;margin-bottom:1rem;">Datos opcionales</h4>
 <label>Nombre completo <span class="opcional">(opcional)</span></label><input type="text" name="nombre_completo">
 <label>Edad <span class="opcional">(opcional)</span></label><input type="number" name="edad" min="18" max="99" placeholder="Ej: 28">
-<label>Ciudad <span class="opcional">(opcional)</span></label><input type="text" name="ciudad" placeholder="Ej: Santa Cruz">
+{{ ubicacion_html|safe }}
 <label>Número de móvil <span class="opcional">(opcional)</span></label><input type="tel" name="telefono" placeholder="+591 ...">
+<label>Idiomas que hablas <span class="opcional">(selecciona uno o varios)</span></label>
+<div style="margin-top:10px;">{{ idiomas_html|safe }}</div>
+<label>Disponibilidad <span class="opcional">(selecciona)</span></label>
+<div style="margin-top:10px;">{{ disponibilidad_html|safe }}</div>
+<label>Descripción personal <span class="opcional">(opcional)</span></label>
+<textarea name="descripcion" rows="3" style="width:100%;padding:.8rem;border:none;border-radius:8px;background:#0f3460;color:#fff;font-size:1rem;resize:vertical" placeholder="Cuéntanos sobre ti, tus gustos y lo que ofreces/buscas..."></textarea>
 <label>Tipo de servicios que busco <span class="opcional">(selecciona uno o varios)</span></label>
 <div style="margin-top:10px;">
 {% for s in servicios %}
@@ -370,7 +515,10 @@ hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 {% endfor %}
 </div>
 <button class="boton">💎 Crear cuenta</button>
-</form><a href="/elegir-perfil" class="volver">← Volver atrás</a></div>""", servicios=SERVICIOS_OPCIONES)
+</form><a href="/elegir-perfil" class="volver">← Volver atrás</a></div>""", servicios=SERVICIOS_OPCIONES,
+        ubicacion_html=html_ubicacion(),
+        idiomas_html=html_checks("idiomas", IDIOMAS_OPCIONES, []),
+        disponibilidad_html=html_checks("disponibilidad", DISPONIBILIDAD_OPCIONES, []))
 
 # ==========================================================
 # 📝 REGISTRO DAMA
@@ -386,8 +534,13 @@ def registrar_dama():
         db = get_db(); cur = db.cursor()
         try:
             uid = generar_id()
-            cur.execute("INSERT INTO usuarios (id,nickname,correo,contrasena,tipo_perfil,edad,ciudad) VALUES (?,?,?,?,'dama',?,?)",
-                (uid, nickname, correo, hash_clave(clave), request.form.get("edad") or None, request.form.get("ciudad","").strip()))
+            cur.execute("""INSERT INTO usuarios (id,nickname,correo,contrasena,tipo_perfil,edad,pais,ciudad,idiomas,descripcion,disponibilidad)
+                VALUES (?,?,?,?,'dama',?,?,?,?,?,?)""",
+                (uid, nickname, correo, hash_clave(clave), request.form.get("edad") or None,
+                 request.form.get("pais","").strip(), leer_ciudad(request.form),
+                 ",".join(request.form.getlist("idiomas")),
+                 request.form.get("descripcion","").strip(),
+                 ",".join(request.form.getlist("disponibilidad"))))
             cur.execute("""INSERT INTO perfil_dama (usuario_id,nombre_completo,estatura_cm,contextura,color_piel,color_ojos,color_cabello,personalidad,telefono,servicios_ofrezco)
                 VALUES (?,?,?,?,?,?,?,?,?,?)""",
                 (uid, request.form.get("nombre_completo","").strip(), request.form.get("estatura_cm") or None,
@@ -425,7 +578,7 @@ hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 <hr><h4 style="color:#aaa;margin-bottom:1rem;">Descripción personal</h4>
 <label>Nombre completo <span class="opcional">(opcional)</span></label><input type="text" name="nombre_completo">
 <label>Edad <span class="opcional">(opcional)</span></label><input type="number" name="edad" min="18" max="99" placeholder="Ej: 24">
-<label>Ciudad <span class="opcional">(opcional)</span></label><input type="text" name="ciudad" placeholder="Ej: Santa Cruz">
+{{ ubicacion_html|safe }}
 <label>Estatura (cm)</label><input type="number" name="estatura_cm" placeholder="Ej: 165">
 <label>Contextura o medidas (cm)</label><input type="text" name="contextura" placeholder="Ej: 90-60-95">
 <label>Color de piel</label><select name="color_piel"><option value="">Seleccionar</option><option>Oscura</option><option>Blanca</option><option>Amarilla</option><option>Trigueña</option><option>Otros</option></select>
@@ -433,6 +586,12 @@ hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 <label>Color de cabello</label><select name="color_cabello"><option value="">Seleccionar</option><option>Rubio</option><option>Negro</option><option>Castaño</option><option>Pelirojo</option><option>Otros</option></select>
 <label>Personalidad</label><select name="personalidad"><option value="">Seleccionar</option><option>Tímida</option><option>Extrovertida</option><option>Otros</option></select>
 <label>Número de móvil</label><input type="tel" name="telefono" placeholder="+591 ...">
+<label>Idiomas que hablas <span class="opcional">(selecciona uno o varios)</span></label>
+<div style="margin-top:10px;">{{ idiomas_html|safe }}</div>
+<label>Disponibilidad <span class="opcional">(selecciona)</span></label>
+<div style="margin-top:10px;">{{ disponibilidad_html|safe }}</div>
+<label>Descripción personal <span class="opcional">(opcional)</span></label>
+<textarea name="descripcion" rows="3" style="width:100%;padding:.8rem;border:none;border-radius:8px;background:#0f3460;color:#fff;font-size:1rem;resize:vertical" placeholder="Cuéntanos sobre ti, tus gustos y lo que ofreces..."></textarea>
 <label>Tipo de servicios que ofrezco <span class="opcional">(selecciona uno o varios)</span></label>
 <div style="margin-top:10px;">
 {% for s in servicios %}
@@ -440,7 +599,10 @@ hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 {% endfor %}
 </div>
 <button class="boton">💎 Crear cuenta</button>
-</form><a href="/elegir-perfil" class="volver">← Volver atrás</a></div>""", servicios=SERVICIOS_OPCIONES)
+</form><a href="/elegir-perfil" class="volver">← Volver atrás</a></div>""", servicios=SERVICIOS_OPCIONES,
+        ubicacion_html=html_ubicacion(),
+        idiomas_html=html_checks("idiomas", IDIOMAS_OPCIONES, []),
+        disponibilidad_html=html_checks("disponibilidad", DISPONIBILIDAD_OPCIONES, []))
 
 # ==========================================================
 # 📸 FOTOS
@@ -568,7 +730,10 @@ h2{text-align:center;margin-bottom:.5rem;color:#fff}
 {% else %}<span class="etiqueta-tipo dama">👩 Dama</span>{% endif %}
 </div>
 <p class="dato">📧 {{ usuario['correo'] }}</p>
-{% if usuario['edad'] %}<p class="dato">🎂 {{ usuario['edad'] }} años{% if usuario['ciudad'] %} · 📍 {{ usuario['ciudad'] }}{% endif %}</p>{% endif %}
+{% if usuario['edad'] %}<p class="dato">🎂 {{ usuario['edad'] }} años{% if usuario['pais'] or usuario['ciudad'] %} · 📍 {% if usuario['ciudad'] %}{{ usuario['ciudad'] }}{% endif %}{% if usuario['pais'] %}, {{ usuario['pais'] }}{% endif %}{% endif %}</p>{% endif %}
+{% if usuario['idiomas'] %}<p class="dato">🗣️ Idiomas: {% for i in usuario['idiomas'].split(',') %}{% if i %}<span class="etiqueta">{{ i }}</span>{% endif %}{% endfor %}</p>{% endif %}
+{% if usuario['disponibilidad'] %}<p class="dato">🕐 Disponibilidad: {% for d in usuario['disponibilidad'].split(',') %}{% if d %}<span class="etiqueta">{{ d }}</span>{% endif %}{% endfor %}</p>{% endif %}
+{% if usuario['descripcion'] %}<p class="dato" style="font-style:italic">📝 {{ usuario['descripcion'] }}</p>{% endif %}
 <p class="dato">📅 Registrado: {{ usuario['creado_en'][:10] }}</p>
 <p class="dato">💬 Mensajes hoy: {{ enviados_hoy }}{% if plan['limite_mensajes'] is not none %}/ {{ plan['limite_mensajes'] }}{% else %} (ilimitados){% endif %}</p>
 {% if plan['limite_mensajes'] is not none and plan['limite_mensajes'] > 0 %}
@@ -643,9 +808,12 @@ def editar_perfil():
                 db.commit(); flash("✅ Contraseña actualizada")
             return redirect("/editar-perfil")
         # Actualizar perfil
-        cur.execute("UPDATE usuarios SET nickname=?, edad=?, ciudad=? WHERE id=?",
+        cur.execute("""UPDATE usuarios SET nickname=?, edad=?, pais=?, ciudad=?, idiomas=?, descripcion=?, disponibilidad=? WHERE id=?""",
             [request.form.get("nickname","").strip() or usuario["nickname"],
-             request.form.get("edad") or None, request.form.get("ciudad","").strip(), mi_id])
+             request.form.get("edad") or None, request.form.get("pais","").strip(),
+             leer_ciudad(request.form), ",".join(request.form.getlist("idiomas")),
+             request.form.get("descripcion","").strip(),
+             ",".join(request.form.getlist("disponibilidad")), mi_id])
         if usuario["tipo_perfil"] == "caballero":
             cur.execute("""UPDATE perfil_caballero SET nombre_completo=?, telefono=?, servicios_busco=? WHERE usuario_id=?""",
                 [request.form.get("nombre_completo","").strip(), request.form.get("telefono","").strip(),
@@ -667,6 +835,9 @@ def editar_perfil():
         servicios_seleccionados = set(perfil["servicios_busco"].split(","))
     if usuario["tipo_perfil"] == "dama" and perfil.get("servicios_ofrezco"):
         servicios_seleccionados = set(perfil["servicios_ofrezco"].split(","))
+
+    idiomas_sel = set(usuario["idiomas"].split(",")) if usuario["idiomas"] else set()
+    disp_sel = set(usuario["disponibilidad"].split(",")) if usuario["disponibilidad"] else set()
 
     return render_template_string("""
 <style>
@@ -698,9 +869,15 @@ hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 <input type="hidden" name="accion" value="perfil">
 <label>Nickname</label><input type="text" name="nickname" value="{{ usuario['nickname'] }}" required>
 <label>Edad</label><input type="number" name="edad" min="18" max="99" value="{{ usuario['edad'] or '' }}">
-<label>Ciudad</label><input type="text" name="ciudad" value="{{ usuario['ciudad'] or '' }}">
+{{ ubicacion_html|safe }}
 <label>Nombre completo</label><input type="text" name="nombre_completo" value="{{ perfil.get('nombre_completo','') or '' }}">
 <label>Número de móvil</label><input type="tel" name="telefono" value="{{ perfil.get('telefono','') or '' }}">
+<label>Idiomas que hablas <span style="color:#888;font-size:.85rem">(selecciona uno o varios)</span></label>
+<div style="margin-top:10px;">{{ idiomas_html|safe }}</div>
+<label>Disponibilidad <span style="color:#888;font-size:.85rem">(selecciona)</span></label>
+<div style="margin-top:10px;">{{ disponibilidad_html|safe }}</div>
+<label>Descripción personal</label>
+<textarea name="descripcion" rows="3" style="width:100%;padding:.8rem;border:none;border-radius:8px;background:#0f3460;color:#fff;font-size:1rem;resize:vertical" placeholder="Cuéntanos sobre ti, tus gustos y lo que ofreces/buscas...">{{ usuario['descripcion'] or '' }}</textarea>
 {% if usuario['tipo_perfil']=='dama' %}
 <label>Estatura (cm)</label><input type="number" name="estatura_cm" value="{{ perfil.get('estatura_cm') or '' }}">
 <label>Contextura o medidas</label><input type="text" name="contextura" value="{{ perfil.get('contextura','') or '' }}">
@@ -752,7 +929,10 @@ hr{border:none;border-top:1px solid #2a3a5a;margin:1.5rem 0}
 </form>
 </div>""",
         usuario=usuario, perfil=perfil, galeria=galeria,
-        servicios=SERVICIOS_OPCIONES, sel=servicios_seleccionados)
+        servicios=SERVICIOS_OPCIONES, sel=servicios_seleccionados,
+        ubicacion_html=html_ubicacion(usuario["pais"] or "", usuario["ciudad"] or ""),
+        idiomas_html=html_checks("idiomas", IDIOMAS_OPCIONES, idiomas_sel),
+        disponibilidad_html=html_checks("disponibilidad", DISPONIBILIDAD_OPCIONES, disp_sel))
 
 # ==========================================================
 # 👤 PERFIL PÚBLICO (con galería, verificación, bloquear/denunciar)
@@ -798,11 +978,14 @@ h2{text-align:center;margin-bottom:.3rem}
 </style>
 <a href="/buscar" class="volver">← Volver a buscar</a>
 <div class="caja">
-{% with m=get_flashed_messages() %}{% if m %}<p class="flash">{{ m[0] }}</p>{% endif %}{% endwith %}
+{% with m=get_flashed_messages() %}{% if m %}{% for msg in m %}<p class="flash">{{ msg }}</p>{% endfor %}{% endif %}{% endwith %}
 <img src="{{ foto_url }}" class="avatar" alt="">
 <h2>{{ u['nickname'] }}</h2>
 {% if u['verificado']==1 %}<p class="verificado">✅ Perfil verificado</p>{% endif %}
-{% if u['edad'] %}<p class="dato">🎂 {{ u['edad'] }} años{% if u['ciudad'] %} · 📍 {{ u['ciudad'] }}{% endif %}</p>{% endif %}
+{% if u['edad'] %}<p class="dato">🎂 {{ u['edad'] }} años{% if u['pais'] or u['ciudad'] %} · 📍 {% if u['ciudad'] %}{{ u['ciudad'] }}{% endif %}{% if u['pais'] %}, {{ u['pais'] }}{% endif %}{% endif %}</p>{% endif %}
+{% if u['idiomas'] %}<p class="dato">🗣️ {% for i in u['idiomas'].split(',') %}{% if i %}<span class="etiqueta">{{ i }}</span>{% endif %}{% endfor %}</p>{% endif %}
+{% if u['disponibilidad'] %}<p class="dato">🕐 {% for d in u['disponibilidad'].split(',') %}{% if d %}<span class="etiqueta">{{ d }}</span>{% endif %}{% endfor %}</p>{% endif %}
+{% if u['descripcion'] %}<p class="dato" style="font-style:italic;margin-top:.8rem">📝 {{ u['descripcion'] }}</p>{% endif %}
 {% if perfil.get('telefono') %}<p class="dato">📱 {{ perfil['telefono'] }}</p>{% endif %}
 {% if perfil.get('estatura_cm') %}<p class="dato">📏 {{ perfil['estatura_cm'] }} cm · ✨ {{ perfil.get('contextura','') }} · 🎨 {{ perfil.get('color_piel','') }}</p>{% endif %}
 {% if perfil.get('servicios_ofrezco') %}<div style="text-align:center;margin-top:.5rem">
@@ -849,6 +1032,7 @@ def buscar():
     edad_min = request.args.get("edad_min", type=int)
     edad_max = request.args.get("edad_max", type=int)
     ciudad = request.args.get("ciudad", "").strip()
+    pais = request.args.get("pais", "").strip()
     servicio = request.args.get("servicio", "").strip()
 
     condiciones = ["u.id != ?"]
@@ -856,15 +1040,16 @@ def buscar():
     if mi_tipo == "caballero":
         condiciones.append("u.tipo_perfil = 'dama'")
         tabla_extra, col_serv = "perfil_dama d", "d.servicios_ofrezco"
-        campos = "u.id,u.nickname,u.foto_perfil,u.edad,u.ciudad,u.verificado,d.servicios_ofrezco,d.nombre_completo,d.estatura_cm,d.contextura,d.color_piel"
+        campos = "u.id,u.nickname,u.foto_perfil,u.edad,u.pais,u.ciudad,u.idiomas,u.verificado,d.servicios_ofrezco,d.nombre_completo,d.estatura_cm,d.contextura,d.color_piel"
     else:
         condiciones.append("u.tipo_perfil = 'caballero'")
         tabla_extra, col_serv = "perfil_caballero c", "c.servicios_busco"
-        campos = "u.id,u.nickname,u.foto_perfil,u.edad,u.ciudad,u.verificado,c.servicios_busco,c.nombre_completo,c.telefono"
+        campos = "u.id,u.nickname,u.foto_perfil,u.edad,u.pais,u.ciudad,u.idiomas,u.verificado,c.servicios_busco,c.nombre_completo,c.telefono"
 
     if filtros_activos:
         if edad_min: condiciones.append("u.edad >= ?"); params.append(edad_min)
         if edad_max: condiciones.append("u.edad <= ?"); params.append(edad_max)
+        if pais: condiciones.append("u.pais = ?"); params.append(pais)
         if ciudad: condiciones.append("LOWER(u.ciudad) LIKE ?"); params.append(f"%{ciudad.lower()}%")
         if servicio: condiciones.append(f"{col_serv} LIKE ?"); params.append(f"%{servicio}%")
 
@@ -925,6 +1110,12 @@ h2{text-align:center;margin-bottom:1.5rem;color:#e94560}
 <div><label>Edad mínima</label><input type="number" name="edad_min" min="18" max="99" value="{{ args.get('edad_min','') }}" style="width:90px"></div>
 <div><label>Edad máxima</label><input type="number" name="edad_max" min="18" max="99" value="{{ args.get('edad_max','') }}" style="width:90px"></div>
 <div><label>Ciudad</label><input type="text" name="ciudad" value="{{ args.get('ciudad','') }}" placeholder="Ej: Santa Cruz" style="width:140px"></div>
+<div><label>País</label><select name="pais">
+<option value="">Todos</option>
+{% for continente, lista in paises_por_continente.items() %}<optgroup label="{{ continente }}">
+{% for p in lista %}<option value="{{p}}" {{ 'selected' if args.get('pais')==p }}>{{p}}</option>{% endfor %}
+</optgroup>{% endfor %}
+</select></div>
 <div><label>Servicio</label><select name="servicio">
 <option value="">Todos</option>
 {% for s in servicios %}<option value="{{s}}" {{ 'selected' if args.get('servicio')==s }}>{{s}}</option>{% endfor %}
@@ -943,7 +1134,8 @@ h2{text-align:center;margin-bottom:1.5rem;color:#e94560}
 {% if p['verificado']==1 %}<span class="sello-verificado">✅ Verificado</span>{% endif %}
 <img src="{{ p['foto_url'] }}" class="tarjeta-foto" alt="">
 <h3 class="tarjeta-nombre">{{ p['nickname'] }}</h3>
-{% if p.get('edad') %}<p class="tarjeta-dato">🎂 {{ p['edad'] }} años{% if p.get('ciudad') %} · 📍 {{ p['ciudad'] }}{% endif %}</p>{% endif %}
+{% if p.get('edad') %}<p class="tarjeta-dato">🎂 {{ p['edad'] }} años{% if p.get('pais') or p.get('ciudad') %} · 📍 {% if p.get('ciudad') %}{{ p['ciudad'] }}{% endif %}{% if p.get('pais') %}, {{ p['pais'] }}{% endif %}{% endif %}</p>{% endif %}
+{% if p.get('idiomas') %}<p class="tarjeta-dato">🗣️ {{ p['idiomas'] }}</p>{% endif %}
 {% if p.get('nombre_completo') %}<p class="tarjeta-dato">{{ p['nombre_completo'] }}</p>{% endif %}
 {% if p.get('estatura_cm') %}<p class="tarjeta-dato">📏 {{ p['estatura_cm'] }} cm · ✨ {{ p.get('contextura','') }}</p>{% endif %}
 {% if p.get('servicios_ofrezco') %}<div style="margin-top:.5rem">
@@ -959,7 +1151,8 @@ h2{text-align:center;margin-bottom:1.5rem;color:#e94560}
 {% endif %}
 </div>""",
         perfiles_list=perfiles_list, filtros_activos=filtros_activos,
-        args=request.args, servicios=SERVICIOS_OPCIONES)
+        args=request.args, servicios=SERVICIOS_OPCIONES,
+        paises_por_continente=PAISES_POR_CONTINENTE)
 
 # ==========================================================
 # 📥 BANDEJA DE ENTRADA (con eliminar conversación y marcar leídos)
@@ -1097,6 +1290,7 @@ def chat(destinatario_id):
             OR (remitente_id=? AND destinatario_id=? AND oculto_destinatario=0))
         ORDER BY fecha ASC""", [mi_id, destinatario_id, destinatario_id, mi_id])
     mensajes = cur.fetchall()
+    ultimo_id = mensajes[-1]["id"] if mensajes else 0
     plan = obtener_plan(mi_id)
     return render_template_string("""
 <style>
@@ -1129,7 +1323,8 @@ body{background:#1a1a2e;color:#fff;min-height:100vh;padding:1rem 2rem}
 <span class="cabecera-nombre">{{ otra['nickname'] }}</span>
 <a href="/perfil/{{ otro_id }}">👁️ Ver perfil</a>
 </div>
-{% with m=get_flashed_messages() %}{% if m %}<p class="flash">{{ m[0] }}</p>{% endif %}{% endwith %}
+{% with m=get_flashed_messages() %}{% if m %}{% for msg in m %}<p class="flash">{{ msg }}</p>{% endfor %}{% endif %}{% endwith %}
+<div id="mensajes-contenedor">
 {% if mensajes %}
 {% for m in mensajes %}
 <div class="mensaje {{ 'mensaje-yo' if m['remitente_id']==mi_id else 'mensaje-otro' }}">
@@ -1137,7 +1332,8 @@ body{background:#1a1a2e;color:#fff;min-height:100vh;padding:1rem 2rem}
 <div class="mensaje-fecha">{{ m['fecha'][11:16] }}</div>
 </div>
 {% endfor %}
-{% else %}<p style="text-align:center;color:#aaa;padding:2rem">Aún no hay mensajes. ¡Escribe el primero! 💬</p>{% endif %}
+{% else %}<p id="mensaje-vacio" style="text-align:center;color:#aaa;padding:2rem">Aún no hay mensajes. ¡Escribe el primero! 💬</p>{% endif %}
+</div>
 {% if puede_enviar %}
 <form class="form-enviar" method="post">
 <textarea name="mensaje" placeholder="Escribe tu mensaje..." required></textarea>
@@ -1146,10 +1342,266 @@ body{background:#1a1a2e;color:#fff;min-height:100vh;padding:1rem 2rem}
 {% else %}
 <p class="aviso-limite">⚠️ Has alcanzado tu límite de mensajes diarios{% if limite is not none %} ({{ enviados_hoy }}/{{ limite }}){% endif %}. <a href="/suscripcion">Mejorar plan 💎</a></p>
 {% endif %}
+<script>
+(function(){
+    var vacio = document.getElementById('mensaje-vacio');
+    if (vacio) vacio.remove();
+    var cont = document.getElementById('mensajes-contenedor');
+    function bajar(){ window.scrollTo(0, document.body.scrollHeight); }
+    bajar();
+    var source = new EventSource('/stream/{{ otro_id }}?ultimo={{ ultimo_id }}');
+    source.onmessage = function(e){
+        cont.insertAdjacentHTML('beforeend', e.data);
+        bajar();
+    };
+    window.addEventListener('beforeunload', function(){ source.close(); });
+})();
+</script>
 </div>""",
         otra=otra, foto_url=foto_url_de(otra["foto_perfil"]), mensajes=mensajes,
         puede_enviar=puede_enviar_mensaje(mi_id), mi_id=mi_id, otro_id=destinatario_id,
-        limite=plan["limite_mensajes"], enviados_hoy=contar_mensajes_hoy(mi_id))
+        limite=plan["limite_mensajes"], enviados_hoy=contar_mensajes_hoy(mi_id),
+        ultimo_id=ultimo_id)
+
+# ==========================================================
+# ==========================================================
+# ⚡ CHAT EN TIEMPO REAL (Server-Sent Events, sin dependencias)
+# ==========================================================
+@app.route("/stream/<otro_id>")
+def stream_chat(otro_id):
+    if "usuario_id" not in session:
+        abort(401)
+    mi_id = session["usuario_id"]
+    if mi_id == otro_id or esta_bloqueado(mi_id, otro_id):
+        abort(403)
+    ultimo = request.args.get("ultimo", 0, type=int)
+
+    def event_stream():
+        last_id = ultimo
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        try:
+            while True:
+                cur = conn.cursor()
+                cur.execute("""SELECT * FROM mensajes WHERE id > ? AND
+                    ((remitente_id=? AND destinatario_id=? AND oculto_remitente=0)
+                     OR (remitente_id=? AND destinatario_id=? AND oculto_destinatario=0))
+                    ORDER BY id ASC""", [last_id, mi_id, otro_id, otro_id, mi_id])
+                for r in cur.fetchall():
+                    last_id = r["id"]
+                    if r["remitente_id"] == otro_id:
+                        cur.execute("UPDATE mensajes SET leido=1 WHERE id=?", [r["id"]])
+                        conn.commit()
+                    lado = "yo" if r["remitente_id"] == mi_id else "otro"
+                    texto = str(escape(r["contenido"]))
+                    hora = str(r["fecha"])[11:16]
+                    html = (f'<div class="mensaje mensaje-{lado}">'
+                            f'<div class="mensaje-contenido">{texto}</div>'
+                            f'<div class="mensaje-fecha">{hora}</div></div>')
+                    yield f"data: {html}\n\n"
+                yield ": ping\n\n"  # keepalive
+                time.sleep(1.5)
+        finally:
+            conn.close()
+
+    return Response(event_stream(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+# ==========================================================
+# ⚙️ PANEL DE ADMINISTRACIÓN (verificaciones + denuncias)
+# ==========================================================
+def es_admin():
+    return session.get("admin") is True
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin_panel():
+    if request.method == "POST":
+        if request.form.get("password") == ADMIN_PASS:
+            session["admin"] = True
+        else:
+            flash("❌ Contraseña de administrador incorrecta")
+        return redirect("/admin")
+    if not es_admin():
+        return render_template_string("""
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:#1a1a2e;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+.caja{background:#16213e;padding:2.5rem;border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:100%;max-width:400px}
+h2{text-align:center;margin-bottom:1.5rem;color:#e94560}
+input{width:100%;padding:.9rem;margin:.5rem 0;border:none;border-radius:10px;background:#0f3460;color:#fff;font-size:1rem}
+.boton{width:100%;padding:.9rem;border:none;border-radius:10px;background:linear-gradient(90deg,#9c27b0,#e94560);color:#fff;font-size:1rem;cursor:pointer;margin-top:1rem;font-weight:bold}
+.error{color:#ff6b6b;text-align:center;margin-bottom:1rem}
+.volver{color:#aaa;text-decoration:none;font-size:.95rem;display:block;margin-top:1.5rem;text-align:center}
+</style>
+<div class="caja">
+<h2>⚙️ Acceso Administrador</h2>
+{% with m=get_flashed_messages() %}{% if m %}<p class="error">{{ m[0] }}</p>{% endif %}{% endwith %}
+<form method="post">
+<input type="password" name="password" placeholder="Contraseña de administrador" required autofocus>
+<button class="boton">Entrar al panel 🔐</button>
+</form>
+<a href="/" class="volver">← Volver al inicio</a>
+</div>""")
+
+    db = get_db(); cur = db.cursor()
+    cur.execute("SELECT COUNT(*) c FROM usuarios"); total_usu = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) c FROM usuarios WHERE tipo_perfil='dama'"); total_damas = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) c FROM mensajes"); total_mens = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) c FROM denuncias"); total_den = cur.fetchone()["c"]
+    cur.execute("SELECT COUNT(*) c FROM usuarios WHERE verificado=2"); pend_ver = cur.fetchone()["c"]
+    cur.execute("SELECT COALESCE(SUM(monto),0) s FROM pagos"); ingresos = cur.fetchone()["s"]
+
+    cur.execute("""SELECT u.id, u.nickname, u.correo, u.tipo_perfil, u.ciudad, u.edad, u.creado_en
+        FROM usuarios u WHERE u.verificado=2 ORDER BY u.creado_en DESC""")
+    pendientes = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""SELECT d.id, d.motivo, d.fecha,
+        uo.nickname as denunciado, uo.id as denunciado_id, uo.verificado as denunciado_ver,
+        un.nickname as denunciante
+        FROM denuncias d
+        JOIN usuarios uo ON uo.id = d.denunciado_id
+        JOIN usuarios un ON un.id = d.denunciante_id
+        ORDER BY d.fecha DESC""")
+    denuncias = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""SELECT id, nickname, correo, tipo_perfil, plan_actual, verificado, creado_en
+        FROM usuarios ORDER BY creado_en DESC LIMIT 15""")
+    usuarios = [dict(r) for r in cur.fetchall()]
+
+    return render_template_string("""
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:#1a1a2e;color:#fff;min-height:100vh;padding:2rem}
+.cabecera{display:flex;justify-content:space-between;align-items:center;max-width:1100px;margin:0 auto 1.5rem}
+h1{color:#e94560}
+.cabecera a{color:#aaa;text-decoration:none;font-size:.9rem}.cabecera a:hover{color:#fff}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;max-width:1100px;margin:0 auto 2rem}
+.stat{background:#16213e;padding:1.2rem;border-radius:14px;text-align:center}
+.stat-num{font-size:1.8rem;font-weight:bold;color:#e94560}
+.stat-label{color:#aaa;font-size:.85rem;margin-top:.3rem}
+.seccion{max-width:1100px;margin:0 auto 2rem;background:#16213e;border-radius:16px;padding:1.5rem}
+.seccion h2{color:#4ecdc4;margin-bottom:1rem;font-size:1.2rem}
+.tarjeta{background:#0f3460;padding:1rem;border-radius:10px;margin-bottom:.8rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.tarjeta-info{flex:1;min-width:200px}
+.tarjeta-nick{font-weight:bold;font-size:1.05rem}
+.tarjeta-dato{color:#aaa;font-size:.85rem;margin-top:.2rem}
+.botones{display:flex;gap:.5rem}
+.btn{padding:.5rem 1rem;border:none;border-radius:8px;cursor:pointer;font-weight:bold;color:#fff;font-size:.85rem;text-decoration:none;display:inline-block}
+.btn-ok{background:#4CAF50}.btn-no{background:#ff3b3b}.btn-warn{background:#ff9800;color:#000}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{padding:.6rem;text-align:left;border-bottom:1px solid #2a3a5a}
+th{color:#e94560}
+.vacio{color:#666;text-align:center;padding:1.5rem;font-size:.9rem}
+.flash{max-width:1100px;margin:0 auto 1rem;padding:.8rem;border-radius:8px;background:#2a3a5a;color:#4CAF50;text-align:center}
+.badge-ver{background:#4CAF50;color:#fff;padding:.1rem .5rem;border-radius:10px;font-size:.75rem}
+.badge-pend{background:#ffc107;color:#000;padding:.1rem .5rem;border-radius:10px;font-size:.75rem}
+.badge-no{background:#555;color:#fff;padding:.1rem .5rem;border-radius:10px;font-size:.75rem}
+</style>
+<div class="cabecera">
+<h1>⚙️ Panel de Administración</h1>
+<a href="/admin/logout">🚪 Cerrar sesión admin</a>
+</div>
+{% with m=get_flashed_messages() %}{% if m %}{% for msg in m %}<p class="flash">{{ msg }}</p>{% endfor %}{% endif %}{% endwith %}
+
+<div class="stats">
+<div class="stat"><div class="stat-num">{{ total_usu }}</div><div class="stat-label">Usuarios</div></div>
+<div class="stat"><div class="stat-num">{{ total_damas }}</div><div class="stat-label">Damas</div></div>
+<div class="stat"><div class="stat-num">{{ total_usu - total_damas }}</div><div class="stat-label">Caballeros</div></div>
+<div class="stat"><div class="stat-num">{{ total_mens }}</div><div class="stat-label">Mensajes</div></div>
+<div class="stat"><div class="stat-num">{{ pend_ver }}</div><div class="stat-label">Verificaciones pendientes</div></div>
+<div class="stat"><div class="stat-num">{{ total_den }}</div><div class="stat-label">Denuncias</div></div>
+<div class="stat"><div class="stat-num">${{ ingresos }}</div><div class="stat-label">Ingresos (USD)</div></div>
+</div>
+
+<div class="seccion">
+<h2>🛡️ Verificaciones pendientes ({{ pendientes|length }})</h2>
+{% if pendientes %}
+{% for p in pendientes %}
+<div class="tarjeta">
+<div class="tarjeta-info">
+<div class="tarjeta-nick">{{ p['nickname'] }}
+{% if p['tipo_perfil']=='dama' %}👩{% else %}🤵{% endif %}</div>
+<div class="tarjeta-dato">📧 {{ p['correo'] }} · {% if p['edad'] %}{{ p['edad'] }} años · {% endif %}{{ p['ciudad'] or 'Sin ciudad' }} · Registrado {{ p['creado_en'][:10] }}</div>
+</div>
+<div class="botones">
+<form method="post" action="/admin/aprobar/{{ p['id'] }}"><button class="btn btn-ok">✅ Aprobar</button></form>
+<form method="post" action="/admin/rechazar/{{ p['id'] }}"><button class="btn btn-no">❌ Rechazar</button></form>
+</div>
+</div>
+{% endfor %}
+{% else %}<p class="vacio">No hay verificaciones pendientes. 🎉</p>{% endif %}
+</div>
+
+<div class="seccion">
+<h2>⚠️ Denuncias recibidas ({{ denuncias|length }})</h2>
+{% if denuncias %}
+{% for d in denuncias %}
+<div class="tarjeta">
+<div class="tarjeta-info">
+<div class="tarjeta-nick">🚨 {{ d['denunciante'] }} denunció a {{ d['denunciado'] }}
+{% if d['denunciado_ver']==1 %}<span class="badge-ver">Verificado</span>{% elif d['denunciado_ver']==2 %}<span class="badge-pend">Pendiente</span>{% else %}<span class="badge-no">Sin verificar</span>{% endif %}</div>
+<div class="tarjeta-dato">Motivo: {{ d['motivo'] }} · {{ d['fecha'][:16] }}</div>
+</div>
+<div class="botones">
+<a href="/perfil/{{ d['denunciado_id'] }}" target="_blank" class="btn btn-warn">👁️ Ver perfil</a>
+<form method="post" action="/admin/resolver-denuncia/{{ d['id'] }}"><button class="btn btn-ok">🗑️ Resuelta</button></form>
+</div>
+</div>
+{% endfor %}
+{% else %}<p class="vacio">No hay denuncias. 🎉</p>{% endif %}
+</div>
+
+<div class="seccion">
+<h2>👥 Últimos usuarios registrados</h2>
+<table>
+<tr><th>Nickname</th><th>Correo</th><th>Tipo</th><th>Plan</th><th>Verificación</th><th>Registro</th></tr>
+{% for u in usuarios %}
+<tr>
+<td>{{ u['nickname'] }}</td>
+<td>{{ u['correo'] }}</td>
+<td>{% if u['tipo_perfil']=='dama' %}👩 Dama{% else %}🤵 Caballero{% endif %}</td>
+<td>{{ u['plan_actual'] }}</td>
+<td>{% if u['verificado']==1 %}<span class="badge-ver">✅ Verificado</span>{% elif u['verificado']==2 %}<span class="badge-pend">⏳ Pendiente</span>{% else %}<span class="badge-no">No</span>{% endif %}</td>
+<td>{{ u['creado_en'][:10] }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>""",
+        total_usu=total_usu, total_damas=total_damas, total_mens=total_mens,
+        total_den=total_den, pend_ver=pend_ver, ingresos=round(ingresos, 2),
+        pendientes=pendientes, denuncias=denuncias, usuarios=usuarios)
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin", None)
+    return redirect("/admin")
+
+@app.route("/admin/aprobar/<uid>", methods=["POST"])
+def admin_aprobar(uid):
+    if not es_admin(): abort(403)
+    db = get_db(); cur = db.cursor()
+    cur.execute("UPDATE usuarios SET verificado=1 WHERE id=?", [uid])
+    db.commit()
+    flash("✅ Perfil verificado correctamente")
+    return redirect("/admin")
+
+@app.route("/admin/rechazar/<uid>", methods=["POST"])
+def admin_rechazar(uid):
+    if not es_admin(): abort(403)
+    db = get_db(); cur = db.cursor()
+    cur.execute("UPDATE usuarios SET verificado=0 WHERE id=?", [uid])
+    db.commit()
+    flash("❌ Verificación rechazada")
+    return redirect("/admin")
+
+@app.route("/admin/resolver-denuncia/<int:did>", methods=["POST"])
+def admin_resolver_denuncia(did):
+    if not es_admin(): abort(403)
+    db = get_db(); cur = db.cursor()
+    cur.execute("DELETE FROM denuncias WHERE id=?", [did])
+    db.commit()
+    flash("🗑️ Denuncia marcada como resuelta y eliminada")
+    return redirect("/admin")
 
 # ==========================================================
 # 🚫 BLOQUEAR / DESBLOQUEAR / DENUNCIAR
@@ -1324,7 +1776,7 @@ h1{text-align:center;color:#e94560;margin-bottom:3rem}
 .flash{max-width:1000px;margin:0 auto 1rem;padding:.8rem;border-radius:8px;background:#2a3a5a;color:#4CAF50;text-align:center}
 </style>
 <a href="/panel" class="volver">← Volver al panel</a>
-{% with m=get_flashed_messages() %}{% if m %}<p class="flash">{{ m[0] }}</p>{% endif %}{% endwith %}
+{% with m=get_flashed_messages() %}{% if m %}{% for msg in m %}<p class="flash">{{ msg }}</p>{% endfor %}{% endif %}{% endwith %}
 <h1>💎 Elige tu plan</h1>
 <div class="cuadricula">
 {% for key, plan in planes.items() %}
@@ -1421,3 +1873,4 @@ if __name__ == "__main__":
     print(f"📍 Base de datos: {DATABASE}")
     print("🌐 Navega en: http://127.0.0.1:5000")
     app.run(debug=True)
+
