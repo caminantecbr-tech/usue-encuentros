@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planes de Suscripción — Usue Encuentros 💎</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+        body{background:#1a1a2e;color:#fff;min-height:100vh;padding:2rem}
+        .volver{display:inline-block;margin-bottom:2rem;color:#e94560;text-decoration:none}
+        .volver:hover{text-decoration:underline}
+        h1{text-align:center;color:#e94560;margin-bottom:3rem}
+        .contenedor{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:2rem}
+        .plan{background:#16213e;border-radius:16px;padding:2rem;border:3px solid transparent;transition:0.3s}
+        .plan:hover{transform:translateY(-5px)}
+        .plan.basico{border-color:#4CAF50}
+        .plan.gold{border-color:#ffc107}
+        .plan.premium{border-color:#9c27b0;transform:scale(1.05)}
+        .plan.premium:hover{transform:scale(1.08)}
+        .plan.actual{box-shadow: 0 0 20px rgba(255,255,255,0.15)}
+        .plan h2{text-align:center;margin-bottom:1rem}
+        .basico h2{color:#4CAF50}
+        .gold h2{color:#ffc107}
+        .premium h2{color:#9c27b0}
+        .precio{text-align:center;font-size:2rem;font-weight:bold;margin-bottom:1rem}
+        .moneda{font-size:1rem}
+        .etiqueta-actual{text-align:center; font-size:0.9rem; margin-bottom:1rem; padding:0.4rem; border-radius:20px; background:#2a3a5a; display:inline-block; width:100%}
+        .caracteristicas{list-style:none;margin:2rem 0}
+        .caracteristicas li{padding:0.5rem 0;border-bottom:1px solid #0f3460}
+        .caracteristicas li:last-child{border:none}
+        .boton{display:block;text-align:center;padding:1rem;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:1rem; transition:0.3s}
+        .basico .boton{background:#4CAF50;color:#fff}
+        .gold .boton{background:#ffc107;color:#000}
+        .premium .boton{background:linear-gradient(90deg,#9c27b0,#e94560);color:#fff}
+        .metodos{max-width:800px;margin:4rem auto 0 auto;background:#16213e;padding:2rem;border-radius:16px}
+        .metodos h3{color:#e94560;margin-bottom:1.5rem;text-align:center}
+        .metodo{display:flex;justify-content:space-between;align-items:center;padding:1rem 0;border-bottom:1px solid #0f3460}
+        .disponible{color:#4CAF50}
+        .proximamente{color:#ffc107}
+    </style>
+</head>
+<body>
+
+<a href="/panel" class="volver">← Volver a mi panel</a>
+<h1>💎 Elige tu plan</h1>
+
+<div class="contenedor">
+    <!-- 🟢 Plan Básico -->
+    <div class="plan basico {% if plan_actual == 'basico' %}actual{% endif %}">
+        <h2>🟢 Básico</h2>
+        <p style="text-align:center;color:#aaa;margin-bottom:1rem;">Para empezar</p>
+        <div class="precio">Gratis</div>
+        {% if plan_actual == 'basico' %}
+        <div class="etiqueta-actual">✅ Tu plan actual</div>
+        {% endif %}
+        <ul class="caracteristicas">
+            <li>✅ Crear perfil completo</li>
+            <li>✅ Búsqueda básica de perfiles</li>
+            <li>✅ 5 mensajes por día</li>
+            <li>✅ Ver fotos y perfiles</li>
+        </ul>
+        <a href="/buscar" class="boton">
+            {% if plan_actual == 'basico' %}Continuar{% else %}Mantener{% endif %}
+        </a>
+    </div>
+
+    <!-- 🟡 Plan Gold -->
+    <div class="plan gold {% if plan_actual == 'gold' %}actual{% endif %}">
+        <h2>🟡 Gold</h2>
+        <p style="text-align:center;color:#aaa;margin-bottom:1rem;">Para conectar más</p>
+        <div class="precio">9.99<span class="moneda"> USD/mes</span></div>
+        {% if plan_actual == 'gold' %}
+        <div class="etiqueta-actual">✅ Tu plan actual</div>
+        {% endif %}
+        <ul class="caracteristicas">
+            <li>✅ Todo lo del plan Básico</li>
+            <li>✅ Mensajes ilimitados</li>
+            <li>✅ Filtros de búsqueda avanzados</li>
+            <li>✅ Perfil destacado</li>
+            <li>✅ Ver quién te visitó</li>
+        </ul>
+        {% if plan_actual != 'gold' %}
+        <a href="/pago/gold" class="boton">Suscribirme</a>
+        {% endif %}
+    </div>
+
+    <!-- 💜 Plan Premium -->
+    <div class="plan premium {% if plan_actual == 'premium' %}actual{% endif %}">
+        <h2>💜 Premium</h2>
+        <p style="text-align:center;color:#aaa;margin-bottom:1rem;">Experiencia completa</p>
+        <div class="precio">19.99<span class="moneda"> USD/mes</span></div>
+        {% if plan_actual == 'premium' %}
+        <div class="etiqueta-actual">✅ Tu plan actual</div>
+        {% endif %}
+        <ul class="caracteristicas">
+            <li>✅ Todo lo del plan Gold</li>
+            <li>✅ Mensajes prioritarios</li>
+            <li>✅ Sin publicidad</li>
+            <li>✅ Verificación destacada</li>
+            <li>✅ Soporte prioritario</li>
+            <li>✅ Acceso anticipado a novedades</li>
+        </ul>
+        {% if plan_actual != 'premium' %}
+        <a href="/pago/premium" class="boton">Suscribirme</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="metodos">
+    <h3>💳 Formas de pago</h3>
+    <div class="metodo">
+        <span>💳 Tarjeta de crédito / débito</span>
+        <span class="disponible">✅ Disponible</span>
+    </div>
+    <div class="metodo">
+        <span>🌐 PayPal</span>
+        <span class="disponible">✅ Disponible</span>
+    </div>
+    <div class="metodo">
+        <span>📱 Pago móvil Bolivia</span>
+        <span class="proximamente">⏳ Próximamente</span>
+    </div>
+    <div class="metodo">
+        <span>🏦 Transferencia bancaria</span>
+        <span class="proximamente">⏳ Próximamente</span>
+    </div>
+    <div class="metodo">
+        <span>💵 Efectivo</span>
+        <span class="proximamente">⏳ Próximamente</span>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversación — Usue Encuentros 💎</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #1a1a2e; color: #fff; min-height: 100vh; padding: 0; display: flex; flex-direction: column; }
+        .cabecera { background: #16213e; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid #0f3460; }
+        .cabecera img { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #e94560; }
+        .cabecera h3 { color: #e94560; }
+        .mensajes { flex: 1; padding: 2rem; max-width: 900px; margin: 0 auto; width: 100%; overflow-y: auto; }
+        .mensaje { margin-bottom: 1.5rem; max-width: 70%; }
+        .mensaje.propio { margin-left: auto; text-align: right; }
+        .bocadillo { padding: .9rem 1.2rem; border-radius: 18px; background: #0f3460; line-height: 1.5; }
+        .mensaje.propio .bocadillo { background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff; }
+        .hora { font-size: .75rem; color: #888; margin-top: .3rem; }
+        .mensaje.propio .hora { color: #ffd6d6; }
+        .formulario { padding: 1.5rem 2rem; background: #16213e; border-top: 1px solid #0f3460; display: flex; gap: .8rem; max-width: 900px; margin: 0 auto; width: 100%; }
+        .formulario input { flex: 1; padding: .9rem 1.2rem; border-radius: 25px; border: none; background: #0f3460; color: #fff; font-size: 1rem; }
+        .formulario button { padding: .9rem 2rem; border-radius: 25px; border: none; background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff; font-weight: bold; cursor: pointer; }
+        .volver { color: #aaa; text-decoration: none; font-size: .9rem; margin-bottom: 1rem; display: inline-block; }
+        .volver:hover { color: #fff; }
+        .vacio { text-align: center; color: #666; padding: 3rem; }
+        .aviso-limite { text-align:center; padding:0.8rem; background:#2a3a5a; border-radius:8px; margin: 0 2rem 1rem 2rem; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .aviso-limite a { color:#ffc107; margin-left:0.5rem; font-weight:bold; text-decoration:none; }
+        .flash { text-align:center; padding: 0.8rem; margin: 0 2rem 1rem 2rem; border-radius: 8px; max-width: 900px; margin-left: auto; margin-right: auto; }
+        .flash.aviso { background: #2a3a5a; color: #ffc107; }
+    </style>
+</head>
+<body>
+
+<div class="cabecera">
+    <a href="/buscar" class="volver">← Volver</a>
+    <img src="{{ foto_url }}" alt="Foto de perfil">
+    <div>
+        <h3>{{ otra_persona.nickname }}</h3>
+        <small style="color:#888">En conversación</small>
+    </div>
+</div>
+
+<!-- ✅ Avisos del sistema -->
+{% with mensajes = get_flashed_messages() %}
+    {% if mensajes %}
+        {% for m in mensajes %}
+            <div class="flash aviso">{{ m }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- ✅ Límite de mensajes para plan Básico -->
+{% if plan_actual == 'basico' %}
+<div class="aviso-limite">
+    💬 Mensajes hoy: {{ enviados_hoy }} / 5
+    <a href="/suscripcion">Actualizar a Gold ✨</a>
+</div>
+{% endif %}
+
+<div class="mensajes">
+    {% if mensajes %}
+        {% for m in mensajes %}
+        <div class="mensaje {% if m.remitente_id == session['usuario_id'] %}propio{% endif %}">
+            <div class="bocadillo">{{ m.contenido }}</div>
+            <div class="hora">{{ m.fecha[11:16] }}</div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="vacio">
+            <p>💎 Aún no hay mensajes</p>
+            <p style="font-size:.9rem; margin-top:.5rem">Escribe el primero para romper el hielo ✨</p>
+        </div>
+    {% endif %}
+</div>
+
+<form class="formulario" method="post">
+    <input type="text" name="mensaje" placeholder="Escribe tu mensaje..." required autocomplete="off">
+    <button>Enviar 💬</button>
+</form>
+
+</body>
+</html>
